@@ -1,11 +1,23 @@
+import os
+
 from flask import Flask, request, make_response, jsonify, Response
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
+from flask_login import UserMixin, LoginManager, login_user, login_required
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ecommerce.db'
 
+login_manager = LoginManager()
+
 db = SQLAlchemy(app)
+
+login_manager.init_app(app)
+login_manager.login_view = 'login' # type: ignore
 
 CORS(app)
 
@@ -20,7 +32,19 @@ class Product(db.Model):
         self.price       = price
         self.description = description
 
+
+class User(db.Model, UserMixin):
+    id       = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), nullable=False, unique=True)
+    password = db.Column(db.String(80), nullable=False)
+
+    def __init__(self, username: str, password: str) -> None:
+        self.username = username
+        self.password = password
+
+
 @app.route('/api/products/add', methods=['POST'])
+@login_required
 def add_product() -> Response:
     data = request.get_json()
 
@@ -38,6 +62,7 @@ def add_product() -> Response:
 
 
 @app.route('/api/products/delete/<int:product_id>', methods=['DELETE'])
+@login_required
 def delete_product(product_id: int) -> Response:
     product = Product.query.get(product_id)
 
@@ -65,6 +90,7 @@ def get_products_details(product_id: int) -> Response:
 
 
 @app.route('/api/products/update/<int:product_id>', methods=['PUT'])
+@login_required
 def update_product(product_id: int) -> Response:
     product = Product.query.get(product_id)
 
@@ -105,6 +131,24 @@ def get_products() -> Response:
         return make_response(jsonify({'message': 'Nenhum produto encontrado!'}), 404)
 
     return jsonify(product_list)
+
+
+@login_manager.user_loader
+def load_user(user_id: int) -> User | None:
+    return User.query.get(int(user_id))
+
+
+@app.route('/login', methods=['POST'])
+def login() -> Response:
+    data = request.get_json()
+    user = User.query.filter_by(username=data.get('username')).first()
+
+    if user:
+        if data.get('password') == user.password:
+            login_user(user)
+            return jsonify({'message': 'Usuário logado com sucesso!'})
+
+    return make_response(jsonify({'message': 'Não autorizado. Credenciais inválidas.'}), 401)
 
 
 if __name__ == '__main__':
