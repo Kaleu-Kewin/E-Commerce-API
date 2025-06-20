@@ -1,10 +1,13 @@
 from flask import Flask, request, make_response, jsonify, Response
 from flask_sqlalchemy import SQLAlchemy
+from flask_cors import CORS
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///ecommerce.db'
 
 db = SQLAlchemy(app)
+
+CORS(app)
 
 class Product(db.Model):
     id          = db.Column(db.Integer, primary_key=True)
@@ -82,6 +85,26 @@ def update_product(product_id: int) -> Response:
         db.session.commit()
 
     return make_response(jsonify({'message': 'Produto atualizado com sucesso!'}), 200)
+
+
+@app.route('/api/products', methods=['GET'])
+def get_products() -> Response:
+    products     = Product.query.all()
+    product_list = []
+
+    for p in products:
+        product = {
+            'id'          : p.id,
+            'name'        : p.name,
+            'price'       : p.price,
+            'description' : p.description
+        }
+        product_list.append(product)
+
+    if not product_list:
+        return make_response(jsonify({'message': 'Nenhum produto encontrado!'}), 404)
+
+    return jsonify(product_list)
 
 
 if __name__ == '__main__':
