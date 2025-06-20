@@ -3,7 +3,7 @@ import os
 from flask import Flask, request, make_response, jsonify, Response
 from flask_sqlalchemy import SQLAlchemy
 from flask_cors import CORS
-from flask_login import UserMixin, LoginManager, login_user, login_required
+from flask_login import UserMixin, LoginManager, login_user, login_required, logout_user
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -146,9 +146,16 @@ def login() -> Response:
     if user:
         if data.get('password') == user.password:
             login_user(user)
-            return jsonify({'message': 'Usuário logado com sucesso!'})
+            return jsonify({'message': 'Usuário autenticado com sucesso.'})
 
     return make_response(jsonify({'message': 'Não autorizado. Credenciais inválidas.'}), 401)
+
+
+@app.route('/logout', methods=['POST'])
+@login_required
+def logout():
+    logout_user()
+    return jsonify({'message': 'Logout realizado com sucesso.'})
 
 
 if __name__ == '__main__':
